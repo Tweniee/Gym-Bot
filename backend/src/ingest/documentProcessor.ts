@@ -23,6 +23,8 @@ export class DocumentProcessor {
           return await this.extractTextFile(filePath);
         case ".pdf":
           return await this.extractPdfFile(filePath);
+        case ".csv":
+          return await this.extractCsvFile(filePath);
         default:
           throw new Error(`Unsupported file type: ${ext}`);
       }
@@ -47,6 +49,64 @@ export class DocumentProcessor {
     const dataBuffer = await fs.readFile(filePath);
     const data = await pdfParse(dataBuffer);
     return data.text;
+  }
+
+  /**
+   * Extract text from CSV files
+   * Converts CSV to readable text format
+   */
+  private async extractCsvFile(filePath: string): Promise<string> {
+    const content = await fs.readFile(filePath, "utf-8");
+    const lines = content.split("\n").filter((line) => line.trim());
+
+    if (lines.length === 0) {
+      return "";
+    }
+
+    // Parse CSV (simple implementation, handles basic cases)
+    const rows = lines.map((line) => {
+      // Handle quoted fields
+      const fields: string[] = [];
+      let currentField = "";
+      let inQuotes = false;
+
+      for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+
+        if (char === '"') {
+          inQuotes = !inQuotes;
+        } else if (char === "," && !inQuotes) {
+          fields.push(currentField.trim());
+          currentField = "";
+        } else {
+          currentField += char;
+        }
+      }
+      fields.push(currentField.trim());
+      return fields;
+    });
+
+    // Convert to readable text
+    const headers = rows[0];
+    const dataRows = rows.slice(1);
+
+    let text = `CSV Data with ${dataRows.length} rows:\n\n`;
+
+    // Add header information
+    text += `Columns: ${headers.join(", ")}\n\n`;
+
+    // Convert each row to readable format
+    dataRows.forEach((row, index) => {
+      text += `Row ${index + 1}:\n`;
+      headers.forEach((header, colIndex) => {
+        if (row[colIndex]) {
+          text += `  ${header}: ${row[colIndex]}\n`;
+        }
+      });
+      text += "\n";
+    });
+
+    return text;
   }
 
   /**
@@ -128,7 +188,7 @@ export class DocumentProcessor {
    */
   isValidFileType(filename: string): boolean {
     const ext = path.extname(filename).toLowerCase();
-    return [".txt", ".md", ".pdf"].includes(ext);
+    return [".txt", ".md", ".pdf", ".csv"].includes(ext);
   }
 }
 
