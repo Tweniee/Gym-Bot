@@ -277,6 +277,20 @@ docker logs qdrant
 - Use smaller model (llama3:8b instead of llama3:70b)
 - Increase Docker memory limit
 
+## Cleanup
+
+To remove all created resources and start fresh:
+
+```bash
+# Standard cleanup (keeps Docker images)
+./cleanup.sh
+
+# Complete cleanup (removes everything including images)
+./cleanup-complete.sh
+```
+
+See `CLEANUP_GUIDE.md` for detailed information.
+
 ## Support
 
 For issues and questions, please open a GitHub issue.

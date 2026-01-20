@@ -15,7 +15,6 @@ build/
 uploads/
 *.pdf
 *.txt
-*.md
 
 # Logs
 logs/
