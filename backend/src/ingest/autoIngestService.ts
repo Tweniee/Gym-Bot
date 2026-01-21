@@ -1,36 +1,30 @@
 import fs from 'fs/promises';
 import path from 'path';
-import { watch } from 'fs';
 import { config } from '../utils/config';
 import { logger } from '../utils/logger';
 import { ingestionService } from './ingestionService';
 import { documentProcessor } from './documentProcessor';
 
 export class AutoIngestService {
-  private watchDir: string;
+  private documentsDir: string;
   private processedFiles: Set<string>;
-  private isProcessing: boolean;
 
-  constructor(watchDir: string = config.autoIngestDir) {
-    this.watchDir = watchDir;
+  constructor(documentsDir: string = config.autoIngestDir) {
+    this.documentsDir = documentsDir;
     this.processedFiles = new Set();
-    this.isProcessing = false;
   }
 
   /**
-   * Initialize the auto-ingest service
+   * Initialize the auto-ingest service and process all documents
    */
   async initialize(): Promise<void> {
     try {
-      // Create watch directory if it doesn't exist
-      await fs.mkdir(this.watchDir, { recursive: true });
-      logger.info(`Auto-ingest directory created: ${this.watchDir}`);
+      // Create documents directory if it doesn't exist
+      await fs.mkdir(this.documentsDir, { recursive: true });
+      logger.info(`Documents directory: ${this.documentsDir}`);
 
-      // Process existing files on startup
-      await this.processExistingFiles();
-
-      // Start watching for new files
-      this.startWatching();
+      // Process all files on startup
+      await this.processAllFiles();
 
       logger.info('Auto-ingest service initialized');
     } catch (error) {
@@ -40,109 +34,69 @@ export class AutoIngestService {
   }
 
   /**
-   * Process all existing files in the watch directory
+   * Process all files in the documents directory
    */
-  private async processExistingFiles(): Promise<void> {
+  private async processAllFiles(): Promise<void> {
     try {
-      logger.info('Processing existing files in watch directory...');
+      logger.info('Processing all files in documents directory...');
 
-      const files = await fs.readdir(this.watchDir);
-      const validFiles = files.filter((file) => documentProcessor.isValidFileType(file));
+      const files = await fs.readdir(this.documentsDir);
+      const validFiles = files.filter(
+        (file) =>
+          documentProcessor.isValidFileType(file) &&
+          !file.startsWith('.') &&
+          !file.startsWith('~')
+      );
 
       if (validFiles.length === 0) {
-        logger.info('No files found in watch directory');
+        logger.info(
+          'No documents found. Place PDF, CSV, TXT, or MD files in backend/documents/'
+        );
         return;
       }
 
-      logger.info(`Found ${validFiles.length} files to process`);
+      logger.info(`Found ${validFiles.length} document(s) to ingest`);
+
+      let successCount = 0;
+      let failCount = 0;
 
       for (const file of validFiles) {
-        const filePath = path.join(this.watchDir, file);
-        await this.processFile(filePath, file);
-      }
-
-      logger.info('Finished processing existing files');
-    } catch (error) {
-      logger.error('Failed to process existing files', error);
-    }
-  }
-
-  /**
-   * Start watching the directory for new files
-   */
-  private startWatching(): void {
-    logger.info(`Watching directory: ${this.watchDir}`);
-
-    const watcher = watch(
-      this.watchDir,
-      { recursive: false },
-      async (eventType, filename) => {
-        if (!filename) return;
-
-        // Only process on 'rename' event (file added)
-        if (eventType === 'rename') {
-          const filePath = path.join(this.watchDir, filename);
-
-          // Check if file exists (not deleted)
-          try {
-            await fs.access(filePath);
-
-            // Wait a bit to ensure file is fully written
-            setTimeout(async () => {
-              await this.processFile(filePath, filename);
-            }, 1000);
-          } catch (error) {
-            // File was deleted, ignore
-          }
+        const filePath = path.join(this.documentsDir, file);
+        const success = await this.processFile(filePath, file);
+        if (success) {
+          successCount++;
+        } else {
+          failCount++;
         }
       }
-    );
 
-    watcher.on('error', (error) => {
-      logger.error('File watcher error', error);
-    });
+      logger.info(`Ingestion complete: ${successCount} succeeded, ${failCount} failed`);
+    } catch (error) {
+      logger.error('Failed to process files', error);
+    }
   }
 
   /**
    * Process a single file
    */
-  private async processFile(filePath: string, filename: string): Promise<void> {
-    // Skip if already processed
-    if (this.processedFiles.has(filename)) {
-      return;
-    }
-
-    // Skip if not a valid file type
-    if (!documentProcessor.isValidFileType(filename)) {
-      logger.warn(`Skipping invalid file type: ${filename}`);
-      return;
-    }
-
-    // Skip hidden files and system files
-    if (filename.startsWith('.') || filename.startsWith('~')) {
-      return;
-    }
-
+  private async processFile(filePath: string, filename: string): Promise<boolean> {
     try {
-      logger.info(`Auto-ingesting file: ${filename}`);
-
-      // Mark as processing
-      this.processedFiles.add(filename);
+      logger.info(`Ingesting: ${filename}`);
 
       // Ingest the file
       const result = await ingestionService.ingestDocument(filePath, filename);
 
       if (result.success) {
-        logger.info(`Successfully auto-ingested ${filename} (${result.chunks} chunks)`);
+        this.processedFiles.add(filename);
+        logger.info(`✓ ${filename} (${result.chunks} chunks)`);
+        return true;
       } else {
-        logger.error(`Failed to auto-ingest ${filename}: ${result.error}`);
-        // Remove from processed set so it can be retried
-        this.processedFiles.delete(filename);
+        logger.error(`✗ ${filename}: ${result.error}`);
+        return false;
       }
     } catch (error) {
-      logger.error(`Error processing file ${filename}`, error);
-      // Remove from processed set so it can be retried
-      this.processedFiles.delete(filename);
+      logger.error(`✗ ${filename}:`, error);
+      return false;
     }
   }
 
@@ -162,10 +116,10 @@ export class AutoIngestService {
   }
 
   /**
-   * Get watch directory path
+   * Get documents directory path
    */
   getWatchDirectory(): string {
-    return path.resolve(this.watchDir);
+    return path.resolve(this.documentsDir);
   }
 }
 

@@ -1,8 +1,8 @@
-import fs from "fs/promises";
-import path from "path";
-import pdfParse from "pdf-parse";
-import { config } from "../utils/config";
-import { logger } from "../utils/logger";
+import fs from 'fs/promises';
+import path from 'path';
+import pdfParse from 'pdf-parse';
+import { config } from '../utils/config';
+import { logger } from '../utils/logger';
 
 export interface DocumentChunk {
   text: string;
@@ -18,12 +18,12 @@ export class DocumentProcessor {
 
     try {
       switch (ext) {
-        case ".txt":
-        case ".md":
+        case '.txt':
+        case '.md':
           return await this.extractTextFile(filePath);
-        case ".pdf":
+        case '.pdf':
           return await this.extractPdfFile(filePath);
-        case ".csv":
+        case '.csv':
           return await this.extractCsvFile(filePath);
         default:
           throw new Error(`Unsupported file type: ${ext}`);
@@ -38,7 +38,7 @@ export class DocumentProcessor {
    * Extract text from .txt or .md files
    */
   private async extractTextFile(filePath: string): Promise<string> {
-    const content = await fs.readFile(filePath, "utf-8");
+    const content = await fs.readFile(filePath, 'utf-8');
     return content;
   }
 
@@ -53,21 +53,21 @@ export class DocumentProcessor {
 
   /**
    * Extract text from CSV files
-   * Converts CSV to readable text format
+   * Converts CSV to readable text format with better chunking
    */
   private async extractCsvFile(filePath: string): Promise<string> {
-    const content = await fs.readFile(filePath, "utf-8");
-    const lines = content.split("\n").filter((line) => line.trim());
+    const content = await fs.readFile(filePath, 'utf-8');
+    const lines = content.split('\n').filter((line) => line.trim());
 
     if (lines.length === 0) {
-      return "";
+      return '';
     }
 
     // Parse CSV (simple implementation, handles basic cases)
     const rows = lines.map((line) => {
       // Handle quoted fields
       const fields: string[] = [];
-      let currentField = "";
+      let currentField = '';
       let inQuotes = false;
 
       for (let i = 0; i < line.length; i++) {
@@ -75,9 +75,9 @@ export class DocumentProcessor {
 
         if (char === '"') {
           inQuotes = !inQuotes;
-        } else if (char === "," && !inQuotes) {
+        } else if (char === ',' && !inQuotes) {
           fields.push(currentField.trim());
-          currentField = "";
+          currentField = '';
         } else {
           currentField += char;
         }
@@ -86,27 +86,25 @@ export class DocumentProcessor {
       return fields;
     });
 
-    // Convert to readable text
+    // Convert to readable text with better structure for chunking
     const headers = rows[0];
     const dataRows = rows.slice(1);
 
-    let text = `CSV Data with ${dataRows.length} rows:\n\n`;
+    // Create separate entries for each row (better for semantic search)
+    const entries: string[] = [];
 
-    // Add header information
-    text += `Columns: ${headers.join(", ")}\n\n`;
-
-    // Convert each row to readable format
     dataRows.forEach((row, index) => {
-      text += `Row ${index + 1}:\n`;
+      let entry = `Entry ${index + 1}:\n`;
       headers.forEach((header, colIndex) => {
         if (row[colIndex]) {
-          text += `  ${header}: ${row[colIndex]}\n`;
+          entry += `${header}: ${row[colIndex]}\n`;
         }
       });
-      text += "\n";
+      entries.push(entry);
     });
 
-    return text;
+    // Join with double newlines so chunking can separate them
+    return entries.join('\n\n');
   }
 
   /**
@@ -120,8 +118,8 @@ export class DocumentProcessor {
 
     // Clean and normalize text
     const cleanText = text
-      .replace(/\r\n/g, "\n")
-      .replace(/\n{3,}/g, "\n\n")
+      .replace(/\r\n/g, '\n')
+      .replace(/\n{3,}/g, '\n\n')
       .trim();
 
     if (cleanText.length === 0) {
@@ -143,7 +141,7 @@ export class DocumentProcessor {
         const searchText = cleanText.substring(searchStart, endIndex + 200);
 
         // Look for sentence endings
-        const sentenceEndings = [". ", ".\n", "! ", "!\n", "? ", "?\n"];
+        const sentenceEndings = ['. ', '.\n', '! ', '!\n', '? ', '?\n'];
         let bestBreak = -1;
 
         for (const ending of sentenceEndings) {
@@ -188,7 +186,7 @@ export class DocumentProcessor {
    */
   isValidFileType(filename: string): boolean {
     const ext = path.extname(filename).toLowerCase();
-    return [".txt", ".md", ".pdf", ".csv"].includes(ext);
+    return ['.txt', '.md', '.pdf', '.csv'].includes(ext);
   }
 }
 

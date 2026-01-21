@@ -20,7 +20,7 @@ export const config = {
   chunkSize: parseInt(process.env.CHUNK_SIZE || '600', 10),
   chunkOverlap: parseInt(process.env.CHUNK_OVERLAP || '90', 10),
   topK: parseInt(process.env.TOP_K || '5', 10),
-  similarityThreshold: parseFloat(process.env.SIMILARITY_THRESHOLD || '0.7'),
+  similarityThreshold: parseFloat(process.env.SIMILARITY_THRESHOLD || '0.5'),
 
   // File Upload
   maxFileSize: parseInt(process.env.MAX_FILE_SIZE || '10485760', 10), // 10MB

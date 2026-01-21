@@ -11,10 +11,12 @@ build/
 .env.local
 .env.production
 
-# Uploads
-uploads/
-*.pdf
-*.txt
+# Documents (keep the folder structure but ignore the files)
+backend/documents/*.pdf
+backend/documents/*.csv
+backend/documents/*.txt
+backend/documents/*.md
+!backend/documents/.gitkeep
 
 # Logs
 logs/
