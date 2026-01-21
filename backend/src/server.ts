@@ -6,12 +6,16 @@ import { ollamaClient } from './llm/ollamaClient';
 import { qdrantService } from './vector/qdrantClient';
 import { chatService, ChatRequest } from './chat/chatService';
 import { autoIngestService } from './ingest/autoIngestService';
+import ragRoutes from './rag/rag.routes';
 
 const app = express();
 
 // Middleware
 app.use(cors());
 app.use(express.json());
+
+// RAG webhook routes
+app.use('/rag', ragRoutes);
 
 // Health check endpoint
 app.get('/api/health', async (_req: Request, res: Response) => {

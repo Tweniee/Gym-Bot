@@ -36,10 +36,26 @@ services:
     #           count: 1
     #           capabilities: [gpu]
 
+  # MongoDB Database (for RAG ingestion)
+  mongodb:
+    image: mongo:latest
+    container_name: mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    environment:
+      - MONGO_INITDB_DATABASE=app_db
+    restart: unless-stopped
+    networks:
+      - rag-network
+
 volumes:
   qdrant_storage:
     driver: local
   ollama_data:
+    driver: local
+  mongodb_data:
     driver: local
 
 networks:
